@@ -92,7 +92,7 @@
                                         <reuseForks>true</reuseForks>
 					<argLine>${argLine} -Xmx4096m</argLine>
 					<redirectTestOutputToFile>true</redirectTestOutputToFile>
-                                        <forkedProcessTimeoutInSeconds>300</forkedProcessTimeoutInSeconds
+                                        <forkedProcessTimeoutInSeconds>300</forkedProcessTimeoutInSeconds>
 				</configuration>
 			</plugin>
 
