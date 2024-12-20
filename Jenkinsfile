@@ -12,18 +12,18 @@ pipeline {
         PATH = "/opt/apache-maven-3.9.4/bin:$PATH"
     }
     stages {
-        stage("Copy Dependencies") {
+        stage("Setup Environment") {
             steps {
-                echo "<--------------- Copying Dependencies Started --------------->"
-                sh 'mvn dependency:copy-dependencies'
-                echo "<--------------- Copying Dependencies Completed --------------->"
+                echo "<--------------- Setting Up Environment --------------->"
+                sh 'mvn dependency:copy-dependencies -DoutputDirectory=target/dependency'
+                echo "<--------------- Environment Setup Completed --------------->"
             }
         }
 
         stage("Build") {
             steps {
                 echo "<----------- Build Started ----------->"
-                sh 'mvn clean deploy -Dmaven.test.skip=true'
+                sh 'mvn clean package -Dmaven.test.skip=true'
                 echo "<----------- Build Completed ----------->"
             }
         }
@@ -31,25 +31,28 @@ pipeline {
         stage("Test") {
             steps {
                 echo "<----------- Unit Test Started ----------->"
-                sh 'mvn surefire-report:report'
+                sh 'mvn test'
                 echo "<----------- Unit Test Completed ----------->"
             }
         }
 
-        stage('SonarQube Analysis') {
+        stage("SonarQube Analysis") {
             environment {
                 scannerHome = tool 'satish-sonarqube-scanner'
             }
             steps {
+                echo "<----------- SonarQube Analysis Started ----------->"
                 withSonarQubeEnv('satish-sonarqube-server') {
                     sh "${scannerHome}/bin/sonar-scanner"
                 }
+                echo "<----------- SonarQube Analysis Completed ----------->"
             }
         }
 
         stage("Quality Gate") {
             steps {
                 script {
+                    echo "<----------- Checking Quality Gate ----------->"
                     timeout(time: 1, unit: 'HOURS') {
                         def qg = waitForQualityGate()
                         if (qg.status != 'OK') {
@@ -69,11 +72,9 @@ pipeline {
                     def uploadSpec = """{
                         "files": [
                             {
-                                "pattern": "jarstaging/(*)",
-                                "target": "maven-libs-release-local/{1}",
-                                "flat": "false",
-                                "props": "${properties}",
-                                "exclusions": ["*.sha1", "*.md5"]
+                                "pattern": "target/*.jar",
+                                "target": "maven-libs-release-local/",
+                                "props": "${properties}"
                             }
                         ]
                     }"""
@@ -89,7 +90,7 @@ pipeline {
             steps {
                 script {
                     echo "<--------------- Docker Build Started --------------->"
-                    app = docker.build(imageName + ":" + version)
+                    app = docker.build("${imageName}:${version}")
                     echo "<--------------- Docker Build Ends --------------->"
                 }
             }
@@ -111,7 +112,7 @@ pipeline {
             steps {
                 script {
                     echo "<--------------- Helm Deploy Started --------------->"
-                    sh 'helm install sample-app sample-app-1.0.1'
+                    sh 'helm upgrade --install sample-app sample-app-1.0.1'
                     echo "<--------------- Helm Deploy Ends --------------->"
                 }
             }
